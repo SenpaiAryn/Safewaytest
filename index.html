@@ -1,84 +1,167 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>SOSit - Basic Emergency Map</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>SOSit - Emergency Navigation</title>
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps-web.min.js"></script>
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/services/services-web.min.js"></script>
-  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps.css"/>
+  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps.css" />
   <style>
-    #map { height: 100vh; width: 100vw; }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    h1 {
+      background-color: #d32f2f;
+      color: white;
+      padding: 16px 0;
+      text-align: center;
+      margin: 0;
+    }
+    #map {
+      width: 90%;
+      height: 500px;
+      margin: 20px auto;
+      border: 3px solid #ccc;
+      border-radius: 10px;
+    }
+    .controls {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    button {
+      margin: 5px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
   </style>
 </head>
 <body>
-  <div id="map"></div>
 
-  <script>
-    const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG'; // Replace with your real API key
-    let map, userLocation, userMarker, routeLayer;
+<h1>SOSit – Emergency Navigation</h1>
+<div id="map"></div>
+<div class="controls">
+  <button onclick="findPOI('hospital')">Nearest Hospital</button>
+  <button onclick="findPOI('police station')">Nearest Police Station</button>
+  <button onclick="findPOI('clinic')">Nearest Clinic</button>
+  <button onclick="findPOI('fire station')">Nearest Fire Station</button>
+</div>
 
-    function init(position) {
-      userLocation = {
-        lat: position.coords.latitude,
-        lon: position.coords.longitude
-      };
+<script>
+  const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG'; // Replace with your own key
+  let map, userMarker, destinationMarker, userLocation;
 
-      map = tt.map({
-        key: apiKey,
-        container: 'map',
-        style: 'tomtom://vector/1/basic-main',
-        center: [userLocation.lon, userLocation.lat],
-        zoom: 16
-      });
+  function initMap(position) {
+    userLocation = {
+      lat: position.coords.latitude,
+      lon: position.coords.longitude
+    };
 
-      userMarker = new tt.Marker().setLngLat([userLocation.lon, userLocation.lat]).addTo(map);
-      findNearest('hospital'); // You can change to petrol pump / fire station here
+    map = tt.map({
+      key: apiKey,
+      container: 'map',
+      center: [userLocation.lon, userLocation.lat],
+      zoom: 16
+    });
+
+    map.addControl(new tt.NavigationControl());
+    userMarker = new tt.Marker().setLngLat([userLocation.lon, userLocation.lat]).addTo(map);
+
+    navigator.geolocation.watchPosition(updateLocation);
+  }
+
+  function updateLocation(position) {
+    const currentPos = [position.coords.longitude, position.coords.latitude];
+    userLocation = { lon: currentPos[0], lat: currentPos[1] };
+    if (userMarker) {
+      userMarker.setLngLat(currentPos);
+    }
+    map.easeTo({ center: currentPos });
+  }
+
+  function findPOI(type) {
+    tt.services.fuzzySearch({
+      key: apiKey,
+      query: type,
+      center: [userLocation.lon, userLocation.lat],
+      limit: 1,
+      categorySet: getCategoryCode(type)
+    })
+    .go()
+    .then(result => {
+      if (!result.results.length) {
+        alert(`${type} not found nearby.`);
+        return;
+      }
+
+      const dest = result.results[0].position;
+
+      if (destinationMarker) destinationMarker.remove();
+      destinationMarker = new tt.Marker({ color: 'red' }).setLngLat([dest.lon, dest.lat]).addTo(map);
+
+      drawRoute(userLocation, dest);
+    });
+  }
+
+  function drawRoute(start, end) {
+    if (map.getSource('route')) {
+      map.removeLayer('route');
+      map.removeSource('route');
     }
 
-    function findNearest(type) {
-      tt.services.fuzzySearch({
-        key: apiKey,
-        query: type,
-        center: [userLocation.lon, userLocation.lat],
-        limit: 1
-      }).go().then(result => {
-        if (!result.results.length) return;
-        const dest = result.results[0].position;
-        new tt.Marker({ color: 'red' }).setLngLat([dest.lon, dest.lat]).addTo(map);
-        drawRoute(userLocation, dest);
-      });
-    }
-
-    function drawRoute(start, end) {
-      tt.services.calculateRoute({
-        key: apiKey,
-        locations: `${start.lon},${start.lat}:${end.lon},${end.lat}`
-      }).go().then(response => {
-        const geojson = response.toGeoJson();
-
-        if (map.getSource('route')) {
-          map.removeLayer('route');
-          map.removeSource('route');
+    tt.services.calculateRoute({
+      key: apiKey,
+      locations: `${start.lon},${start.lat}:${end.lon},${end.lat}`
+    })
+    .go()
+    .then(response => {
+      const geojson = response.toGeoJson();
+      map.addSource('route', { type: 'geojson', data: geojson });
+      map.addLayer({
+        id: 'route',
+        type: 'line',
+        source: 'route',
+        paint: {
+          'line-color': '#007bff',
+          'line-width': 5
         }
-
-        map.addSource('route', { type: 'geojson', data: geojson });
-        map.addLayer({
-          id: 'route',
-          type: 'line',
-          source: 'route',
-          paint: {
-            'line-color': '#0000ff',
-            'line-width': 4
-          }
-        });
       });
-    }
 
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(init, () => alert("Enable location"));
-    } else {
-      alert("Geolocation not supported");
+      const bounds = new tt.LngLatBounds();
+      geojson.features[0].geometry.coordinates.forEach(coord => {
+        bounds.extend(tt.LngLat.convert(coord));
+      });
+      map.fitBounds(bounds, { padding: 50 });
+    });
+  }
+
+  function getCategoryCode(type) {
+    // CategorySet codes: https://developer.tomtom.com/search-api/search-api-documentation-category-filter/category-filter
+    switch (type.toLowerCase()) {
+      case 'hospital': return '7322001';
+      case 'police station': return '7377001';
+      case 'clinic': return '7321005';
+      case 'fire station': return '7377002';
+      default: return '';
     }
-  </script>
+  }
+
+  if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(initMap, () => alert('Location access denied.'));
+  } else {
+    alert('Geolocation is not supported by your browser.');
+  }
+</script>
+
 </body>
 </html>
