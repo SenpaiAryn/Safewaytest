@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SOSit - TomTom Navigation Finder</title>
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/maps/maps-web.min.js"></script>
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/services/services-web.min.js"></script>
   <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/maps/maps.css">
   <style>
     body {
@@ -59,8 +60,8 @@
   </div>
 
   <script>
-    const apiKey = 'lbBQfeGxSQ3w9KbJbd1ITzpvWOvloDYM';
-    let map, userLocation;
+    const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG';
+    let map, userLocation, routeLayer;
 
     function initMap() {
       navigator.geolocation.getCurrentPosition(position => {
@@ -81,16 +82,48 @@
       if (!userLocation) return alert("Location not available yet.");
       const [lon, lat] = userLocation;
 
-      fetch(https://api.tomtom.com/search/2/poiSearch/${query}.json?key=${apiKey}&lat=${lat}&lon=${lon}&radius=10000)
+      fetch(`https://api.tomtom.com/search/2/poiSearch/${query}.json?key=${apiKey}&lat=${lat}&lon=${lon}&radius=10000`)
         .then(res => res.json())
         .then(data => {
           data.results.forEach(poi => {
-            new tt.Marker()
+            const marker = new tt.Marker()
               .setLngLat([poi.position.lon, poi.position.lat])
-              .setPopup(new tt.Popup().setText(poi.poi.name))
               .addTo(map);
+
+            marker.getElement().addEventListener('click', () => {
+              drawRouteTo([poi.position.lon, poi.position.lat]);
+            });
           });
         });
+    }
+
+    function drawRouteTo(destination) {
+      if (routeLayer) {
+        map.removeLayer('route');
+        map.removeSource('route');
+      }
+
+      tt.services.calculateRoute({
+        key: apiKey,
+        locations: userLocation.join(',') + ':' + destination.join(',')
+      })
+      .then(response => {
+        const geojson = response.toGeoJson();
+
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: {
+            type: 'geojson',
+            data: geojson
+          },
+          paint: {
+            'line-color': '#1E88E5',
+            'line-width': 6
+          }
+        });
+        routeLayer = 'route';
+      });
     }
 
     initMap();
