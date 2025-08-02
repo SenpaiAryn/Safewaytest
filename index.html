@@ -1,152 +1,84 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SOSit - Emergency Navigation</title>
+  <title>SOSit - Basic Emergency Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps-web.min.js"></script>
   <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/services/services-web.min.js"></script>
-  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps.css" />
+  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 0;
-      background: #f4f4f4;
-    }
-    h1 {
-      background-color: #d32f2f;
-      color: white;
-      padding: 16px 0;
-      text-align: center;
-      margin: 0;
-    }
-    #map {
-      width: 90%;
-      height: 500px;
-      margin: 20px auto;
-      border: 3px solid #ccc;
-      border-radius: 10px;
-    }
-    .controls {
-      text-align: center;
-      margin-bottom: 20px;
-    }
-    button {
-      margin: 5px;
-      padding: 10px 20px;
-      font-size: 16px;
-      background-color: #3498db;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-    }
-    button:hover {
-      background-color: #2980b9;
-    }
+    #map { height: 100vh; width: 100vw; }
   </style>
 </head>
 <body>
+  <div id="map"></div>
 
-<h1>SOSit – Emergency Navigation</h1>
-<div id="map"></div>
-<div class="controls">
-  <button onclick="findRouteTo('hospital')">Nearest Hospital</button>
-  <button onclick="findRouteTo('police station')">Nearest Police Station</button>
-  <button onclick="findRouteTo('clinic')">Nearest Clinic</button>
-  <button onclick="findRouteTo('fire station')">Nearest Fire Station</button>
-</div>
+  <script>
+    const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG'; // Replace with your real API key
+    let map, userLocation, userMarker, routeLayer;
 
-<script>
-  const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG'; // Replace with your TomTom API key
-  let map;
-  let userMarker;
-  let destinationMarker;
-  let userLocation;
-
-  function initMap(position) {
-    userLocation = {
-      lat: position.coords.latitude,
-      lon: position.coords.longitude
-    };
-
-    map = tt.map({
-      key: apiKey,
-      container: 'map',
-      style: 'tomtom://vector/1/basic-main', // Light mode
-      center: [userLocation.lon, userLocation.lat],
-      zoom: 17
-    });
-
-    map.addControl(new tt.NavigationControl());
-    userMarker = new tt.Marker().setLngLat([userLocation.lon, userLocation.lat]).addTo(map);
-
-    navigator.geolocation.watchPosition(pos => {
+    function init(position) {
       userLocation = {
-        lat: pos.coords.latitude,
-        lon: pos.coords.longitude
+        lat: position.coords.latitude,
+        lon: position.coords.longitude
       };
-      const coords = [userLocation.lon, userLocation.lat];
-      userMarker.setLngLat(coords);
-      map.easeTo({ center: coords });
-    });
-  }
 
-  function findRouteTo(type) {
-    tt.services.fuzzySearch({
-      key: apiKey,
-      query: type,
-      center: [userLocation.lon, userLocation.lat],
-      limit: 1,
-      categorySet: [9362005, 9361005, 9361010, 7366] // hospital, police, clinic, fire station
-    }).go().then(result => {
-      if (!result.results.length) {
-        alert(`${type} not found nearby.`);
-        return;
-      }
-      const destination = result.results[0].position;
-      if (destinationMarker) destinationMarker.remove();
-      destinationMarker = new tt.Marker({ color: 'red' }).setLngLat([destination.lon, destination.lat]).addTo(map);
-      drawRoute(userLocation, destination);
-    });
-  }
+      map = tt.map({
+        key: apiKey,
+        container: 'map',
+        style: 'tomtom://vector/1/basic-main',
+        center: [userLocation.lon, userLocation.lat],
+        zoom: 16
+      });
 
-  function drawRoute(start, end) {
-    if (map.getSource('route')) {
-      map.removeLayer('route');
-      map.removeSource('route');
+      userMarker = new tt.Marker().setLngLat([userLocation.lon, userLocation.lat]).addTo(map);
+      findNearest('hospital'); // You can change to petrol pump / fire station here
     }
 
-    tt.services.calculateRoute({
-      key: apiKey,
-      locations: `${start.lon},${start.lat}:${end.lon},${end.lat}`
-    }).go().then(response => {
-      const geojson = response.toGeoJson();
-      map.addSource('route', { type: 'geojson', data: geojson });
-      map.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        paint: {
-          'line-color': '#007bff',
-          'line-width': 5
+    function findNearest(type) {
+      tt.services.fuzzySearch({
+        key: apiKey,
+        query: type,
+        center: [userLocation.lon, userLocation.lat],
+        limit: 1
+      }).go().then(result => {
+        if (!result.results.length) return;
+        const dest = result.results[0].position;
+        new tt.Marker({ color: 'red' }).setLngLat([dest.lon, dest.lat]).addTo(map);
+        drawRoute(userLocation, dest);
+      });
+    }
+
+    function drawRoute(start, end) {
+      tt.services.calculateRoute({
+        key: apiKey,
+        locations: `${start.lon},${start.lat}:${end.lon},${end.lat}`
+      }).go().then(response => {
+        const geojson = response.toGeoJson();
+
+        if (map.getSource('route')) {
+          map.removeLayer('route');
+          map.removeSource('route');
         }
-      });
 
-      const bounds = new tt.LngLatBounds();
-      geojson.features[0].geometry.coordinates.forEach(coord => {
-        bounds.extend(tt.LngLat.convert(coord));
+        map.addSource('route', { type: 'geojson', data: geojson });
+        map.addLayer({
+          id: 'route',
+          type: 'line',
+          source: 'route',
+          paint: {
+            'line-color': '#0000ff',
+            'line-width': 4
+          }
+        });
       });
-      map.fitBounds(bounds, { padding: 50 });
-    });
-  }
+    }
 
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(initMap, () => alert('Location access denied.'));
-  } else {
-    alert('Geolocation not supported by your browser.');
-  }
-</script>
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(init, () => alert("Enable location"));
+    } else {
+      alert("Geolocation not supported");
+    }
+  </script>
 </body>
 </html>
