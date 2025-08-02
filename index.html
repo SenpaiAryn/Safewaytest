@@ -1,1 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TomTom Navigation Finder</title>
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/maps/maps-web.min.js"></script>
+  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/maps/maps.css">
+  <style>
+    #map {
+      width: 100%;
+      height: 90vh;
+    }
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+    }
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <button onclick="searchNearby('hospital')">Find Hospitals</button>
+    <button onclick="searchNearby('petrol station')">Find Petrol Pumps</button>
+    <button onclick="searchNearby('fire station')">Find Fire Stations</button>
+  </div>
+  <div id="map"></div>
 
+  <script>
+    const apiKey = 'YOUR_TOMTOM_API_KEY';
+    let map, userLocation;
+
+    function initMap() {
+      navigator.geolocation.getCurrentPosition(position => {
+        userLocation = [position.coords.longitude, position.coords.latitude];
+        map = tt.map({
+          key: apiKey,
+          container: 'map',
+          center: userLocation,
+          zoom: 14
+        });
+        map.addControl(new tt.NavigationControl());
+
+        new tt.Marker().setLngLat(userLocation).addTo(map);
+      });
+    }
+
+    function searchNearby(query) {
+      if (!userLocation) return alert("Location not available yet.");
+      const [lon, lat] = userLocation;
+
+      fetch(`https://api.tomtom.com/search/2/poiSearch/${query}.json?key=${apiKey}&lat=${lat}&lon=${lon}&radius=10000`)
+        .then(res => res.json())
+        .then(data => {
+          data.results.forEach(poi => {
+            new tt.Marker()
+              .setLngLat([poi.position.lon, poi.position.lat])
+              .setPopup(new tt.Popup().setText(poi.poi.name))
+              .addTo(map);
+          });
+        });
+    }
+
+    initMap();
+  </script>
+</body>
+</html>
