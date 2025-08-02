@@ -4,14 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>SOSit - Emergency Navigation</title>
-  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps-web.min.js"></script>
-  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/services/services-web.min.js"></script>
-  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.15.0/maps/maps.css" />
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.23.0/maps/maps-web.min.js"></script>
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.23.0/services/services-web.min.js"></script>
+  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.23.0/maps/maps.css" />
   <style>
     body {
       font-family: Arial, sans-serif;
       margin: 0;
       padding: 0;
+      background: #121212;
+      color: white;
     }
     h1 {
       background-color: #d32f2f;
@@ -24,7 +26,7 @@
       width: 90%;
       height: 500px;
       margin: 20px auto;
-      border: 3px solid #ccc;
+      border: 3px solid #333;
       border-radius: 10px;
     }
     .controls {
@@ -49,20 +51,20 @@
 <body>
 
 <h1>SOSit – Emergency Navigation</h1>
-<div id="map"></div>
 <div class="controls">
-  <button onclick="findRouteTo('hospital')">Nearest Hospital</button>
-  <button onclick="findRouteTo('petrol station')">Nearest Petrol Pump</button>
-  <button onclick="findRouteTo('fire station')">Nearest Fire Station</button>
+  <button onclick="findEmergencyPlace('Hospital', '7322005')">Nearest Hospital</button>
+  <button onclick="findEmergencyPlace('Police Station', '7376005')">Nearest Police Station</button>
+  <button onclick="findEmergencyPlace('Clinic', '7321003')">Nearest Clinic</button>
+  <button onclick="findEmergencyPlace('Fire Station', '7377001')">Nearest Fire Station</button>
 </div>
+<div id="map"></div>
 
 <script>
-  const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG'; // Replace with your API key
+  const apiKey = '9UgRJVBruTzjmNeO6gZrSB2loxP9ogDG'; // Replace with your real API key
 
   let map;
   let userMarker;
   let destinationMarker;
-  let routeLayer;
   let userLocation;
 
   function initMap(position) {
@@ -75,10 +77,12 @@
       key: apiKey,
       container: 'map',
       center: [userLocation.lon, userLocation.lat],
-      zoom: 17
+      zoom: 17,
+      style: 'tomtom://vector/1/basic-main-dark' // dark mode
     });
 
     map.addControl(new tt.NavigationControl());
+
     userMarker = new tt.Marker().setLngLat([userLocation.lon, userLocation.lat]).addTo(map);
     startTracking();
   }
@@ -89,40 +93,40 @@
       userLocation = { lon: currentPos[0], lat: currentPos[1] };
       if (userMarker) {
         userMarker.setLngLat(currentPos);
-      } else {
-        userMarker = new tt.Marker().setLngLat(currentPos).addTo(map);
       }
       map.easeTo({ center: currentPos });
     });
   }
 
-  function findRouteTo(type) {
+  function findEmergencyPlace(name, categoryCode) {
     tt.services.fuzzySearch({
       key: apiKey,
-      query: type,
+      categorySet: categoryCode,
       center: [userLocation.lon, userLocation.lat],
       limit: 1
     }).go().then(result => {
       if (!result.results.length) {
-        alert(type + ' not found nearby.');
+        alert(name + ' not found nearby.');
         return;
       }
       const destination = result.results[0].position;
+
       if (destinationMarker) destinationMarker.remove();
       destinationMarker = new tt.Marker({ color: 'red' }).setLngLat([destination.lon, destination.lat]).addTo(map);
+
       drawRoute(userLocation, destination);
     });
   }
 
   function drawRoute(start, end) {
-    if (map.getSource('route')) {
+    if (map.getLayer('route')) {
       map.removeLayer('route');
       map.removeSource('route');
     }
 
     tt.services.calculateRoute({
       key: apiKey,
-      locations: `${start.lon},${start.lat}:${end.lon},${end.lat}`
+      locations: `${start.lon},${start.lat}:${end.lon},${end.lat}`,
     }).go().then(response => {
       const geojson = response.toGeoJson();
       map.addSource('route', { type: 'geojson', data: geojson });
@@ -131,8 +135,8 @@
         type: 'line',
         source: 'route',
         paint: {
-          'line-color': '#00aaff',
-          'line-width': 6
+          'line-color': '#00bfff',
+          'line-width': 5
         }
       });
 
@@ -145,11 +149,13 @@
   }
 
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(initMap, () => alert('Location access denied.'));
+    navigator.geolocation.getCurrentPosition(initMap, () =>
+      alert('Location access denied.')
+    );
   } else {
     alert('Geolocation is not supported by your browser.');
   }
-  
 </script>
+
 </body>
 </html>
