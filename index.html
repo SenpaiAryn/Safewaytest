@@ -1,4 +1,68 @@
- function initMap() {
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SOSit - TomTom Navigation Finder</title>
+  <script src="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/maps/maps-web.min.js"></script>
+  <link rel="stylesheet" href="https://api.tomtom.com/maps-sdk-for-web/cdn/6.x/6.18.0/maps/maps.css">
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+    header {
+      background-color: #d32f2f;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 2em;
+      font-weight: bold;
+    }
+    #controls {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      padding: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    #map-container {
+      display: flex;
+      justify-content: center;
+      padding: 20px;
+    }
+    #map {
+      width: 90%;
+      height: 80vh;
+      border: 2px solid #ccc;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body>
+  <header>SOSit - Emergency Navigation</header>
+
+  <div id="controls">
+    <button onclick="searchNearby('hospital')">Find Hospitals</button>
+    <button onclick="searchNearby('petrol station')">Find Petrol Pumps</button>
+    <button onclick="searchNearby('fire station')">Find Fire Stations</button>
+  </div>
+
+  <div id="map-container">
+    <div id="map"></div>
+  </div>
+
+  <script>
+    const apiKey = 'YOUR_TOMTOM_API_KEY';
+    let map, userLocation;
+
+    function initMap() {
       navigator.geolocation.getCurrentPosition(position => {
         userLocation = [position.coords.longitude, position.coords.latitude];
         map = tt.map({
